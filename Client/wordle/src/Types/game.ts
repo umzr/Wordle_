@@ -9,7 +9,7 @@ export interface GameState {
   keyword: string;
   current_row: number;
   current_index: number;
-  letter_count: number;
+  letter_count: any;
   row_count: number;
   userfill: Array<Array<{ letter: string | undefined; state: string }>>;
   popup: string;

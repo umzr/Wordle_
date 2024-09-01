@@ -2,6 +2,8 @@
 import React, { useState } from 'react';
 import Game from "@/components/game";
 import MultiGame from "@/components/MultiGame";
+import GameRoom from '@/components/GameRoom';
+
 import { 
   Box, 
   Button, 
@@ -37,7 +39,7 @@ export default function Home() {
       case GameMode.Single:
         return <Game />;
       case GameMode.Multi:
-        return <MultiGame keyword="REACT" resultdef={() => {}} gamestatedef={() => {}} />;
+        return <GameRoom  />;
       default:
         return (
           <Box display="flex" flexDirection="column" gap={2}>

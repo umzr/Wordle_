@@ -7,14 +7,16 @@ import {
   RatingData,
 } from "@/Types/server";
 
-const URL = "http://localhost:4500"; // or whatever port you choose for Socket.IO
+const URL = "http://localhost:4500"; // Ensure this matches your server URL and port
 
 class Server {
   private socket: Socket;
   private state: ServerState;
 
   constructor() {
-    this.socket = io(URL);
+    this.socket = io(URL, {
+      autoConnect: false, // Prevent auto-connect on instantiation
+    });
     this.state = {
       opponentId: null,
       rating: null,
@@ -27,11 +29,14 @@ class Server {
   }
 
   private setupSocketListeners() {
+    this.socket.on("connect", () => {
+      console.log("Connected to the socket server");
+    });
+
     this.socket.on("gameRoom", (data: GameRoomData) => {
       console.log("(gameRoom): ", data);
       this.state.opponentId = data.opponent.socketid;
       this.state.opponentrating = data.opponent.rating || 1501;
-      // Handle gameRoom data
     });
 
     this.socket.on("opponentState", (data: { row: number; word: string }) => {
@@ -41,9 +46,24 @@ class Server {
       ) {
         this.state.opponentRow = data.row;
         console.log("(opponentState): ", data);
-        // Handle opponent state update
       }
     });
+
+    this.socket.on("disconnect", () => {
+      console.log("Disconnected from the socket server");
+    });
+  }
+
+  public connect() {
+    if (!this.socket.connected) {
+      this.socket.connect();
+    }
+  }
+
+  public disconnect() {
+    if (this.socket.connected) {
+      this.socket.disconnect();
+    }
   }
 
   async waitRoom(
@@ -52,6 +72,7 @@ class Server {
   ) {
     console.log("(waitRoom)");
     this.resetState();
+    this.connect();
 
     try {
       const response = await axios.get(`/game/${auth.userid}`, {

@@ -8,18 +8,21 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Server from "./Mserver";
 import { BlockProps, MultiGameProps, MultiGameState } from "@/Types/game";
+import { CircularProgress } from "@mui/material";
 
+// Block Component for each cell in the game board
 const Block: React.FC<BlockProps> = ({
   letter,
   state,
   isFilled,
   isRevealed,
 }) => {
-  const filled = isFilled ? " filled" : "";
-  const revealed = isRevealed ? " revealed" : "";
-
   return (
-    <div className={`block ${filled}${revealed}`}>
+    <div
+      className={`block ${isFilled ? "filled" : ""} ${
+        isRevealed ? "revealed" : ""
+      }`}
+    >
       <div className="front">{letter}</div>
       <div className={`back ${state}`}>{letter}</div>
     </div>
@@ -34,111 +37,88 @@ const MultiGame: React.FC<MultiGameProps> = ({
   const searchParams = useSearchParams();
   const from = searchParams.get("from") || "/";
 
+  const [loading, setLoading] = useState(true); // Add loading state
+
+  // State Initialization
   const [gameState, setGameState] = useState<MultiGameState>(() => ({
     keyword,
     current_row: 0,
     current_index: 0,
     letter_count: keyword.length,
     row_count: 6,
-    userfill: Array(6)
-      .fill(null)
-      .map(() => Array(keyword.length).fill({ letter: undefined, state: "" })),
+    userfill: Array.from({ length: 6 }, () =>
+      Array(keyword.length).fill({ letter: undefined, state: "" })
+    ),
     popup: "",
     game_state: 0,
     result: undefined,
     opponent: {
       current_row: 0,
-      userfill: Array(6)
-        .fill(null)
-        .map(() =>
-          Array(keyword.length).fill({ letter: undefined, state: "" })
-        ),
+      userfill: Array.from({ length: 6 }, () =>
+        Array(keyword.length).fill({ letter: undefined, state: "" })
+      ),
     },
   }));
 
+  // Setup and Cleanup Socket Listeners
   useEffect(() => {
     console.log("Initialized gameState with keyword:", gameState.keyword);
+
+    Server.connect(); // Ensure socket is connected
+
+    // Listen for opponent state changes
     Server.receiveOpponentState((data) => {
       opponentChange(data);
     });
 
+    // Start game once server signals readiness
+    Server.onGameStart(() => {
+      setLoading(false); // Stop loading when the game starts
+    });
+
     return () => {
       Server.clearServer();
+      Server.disconnect(); // Cleanup when component unmounts
     };
-  }, []);
+  }, [gameState.keyword]);
 
-  const updateBlock = useCallback((row: number, col: number, letter: string | undefined, state: string) => {
-    setGameState(prevState => {
-      const newFill = [...prevState.userfill];
-      newFill[row][col] = { letter, state };
-      return { ...prevState, userfill: newFill };
-    });
-  }, []);
-
-  const showPopup = useCallback((msg: string) => {
-    setGameState(prevState => ({ ...prevState, popup: msg }));
-    setTimeout(() => {
-      setGameState(prevState => ({ ...prevState, popup: "" }));
-    }, 1500);
-  }, []);
-
-  const getFullWordOfRow = useCallback((row: number) => {
-    if (gameState.userfill && Array.isArray(gameState.userfill[row])) {
-      return gameState.userfill[row].map(block => block.letter || "").join("");
-    }
-    console.warn(`Row ${row} is out of bounds or not defined.`);
-    return "";
-  }, [gameState.userfill]);
-
-  const getResult = (board: Array<Array<{ letter: string | undefined; state: string }>>) => {
-    let result = "";
-    for (let i = 0; i < gameState.row_count; i++) {
-      for (let j = 0; j < gameState.letter_count; j++) {
-        if (board[i][j].state === "correct") {
-          result += "🟩";
-        } else if (board[i][j].state === "present") {
-          result += "🟨";
-        } else if (board[i][j].state === "absent") {
-          result += "⬜";
-        }
-      }
-      result += "\n";
-    }
-    return result;
-  };
-
+  // Handle Opponent's State Changes
   const opponentChange = useCallback(
     (data: { row: number; word: string }) => {
       console.log("opponentChange", data);
       setGameState((prevState) => {
         if (data.row === prevState.opponent.current_row) {
-          const newState = { ...prevState };
-          newState.opponent.current_row++;
-          let correct = 0;
+          const newOpponentFill = prevState.opponent.userfill.map(
+            (rowFill, i) =>
+              i === data.row
+                ? rowFill.map((block, j) => {
+                    switch (data.word.charAt(j)) {
+                      case "c":
+                        return { letter: undefined, state: "correct" };
+                      case "p":
+                        return { letter: undefined, state: "present" };
+                      case "a":
+                        return { letter: undefined, state: "absent" };
+                      default:
+                        return block;
+                    }
+                  })
+                : rowFill
+          );
 
-          for (let i = 0; i < data.word.length; i++) {
-            switch (data.word.charAt(i)) {
-              case "c":
-                correct++;
-                newState.opponent.userfill[data.row][i] = {
-                  letter: undefined,
-                  state: "correct",
-                };
-                break;
-              case "p":
-                newState.opponent.userfill[data.row][i] = {
-                  letter: undefined,
-                  state: "present",
-                };
-                break;
-              case "a":
-                newState.opponent.userfill[data.row][i] = {
-                  letter: undefined,
-                  state: "absent",
-                };
-                break;
-            }
-          }
+          const newState = {
+            ...prevState,
+            opponent: {
+              ...prevState.opponent,
+              current_row: prevState.opponent.current_row + 1,
+              userfill: newOpponentFill,
+            },
+          };
+
+          // Check for Correct Guess
+          let correct = newOpponentFill[data.row].filter(
+            (block) => block.state === "correct"
+          ).length;
 
           if (correct >= newState.letter_count) {
             resultdef(
@@ -146,10 +126,11 @@ const MultiGame: React.FC<MultiGameProps> = ({
               getResult(newState.opponent.userfill)
             );
             setTimeout(() => {
-              gamestatedef(-1);
+              gamestatedef(-1); // Opponent wins
             }, 1500);
           }
 
+          // Check if Opponent Used All Rows
           if (newState.opponent.current_row >= newState.row_count) {
             if (!checkTie(newState)) {
               showPopup("Your opponent used all chances. Hurry up!");
@@ -159,7 +140,7 @@ const MultiGame: React.FC<MultiGameProps> = ({
                 getResult(newState.opponent.userfill)
               );
               setTimeout(() => {
-                gamestatedef(0);
+                gamestatedef(0); // Game Tie
               }, 1500);
             }
           }
@@ -169,9 +150,10 @@ const MultiGame: React.FC<MultiGameProps> = ({
         return prevState;
       });
     },
-    [resultdef, gamestatedef]
+    [resultdef, gamestatedef, checkTie, getResult, showPopup]
   );
 
+  // Check for Tie Condition
   const checkTie = useCallback(
     (state: MultiGameState) => {
       if (
@@ -190,59 +172,63 @@ const MultiGame: React.FC<MultiGameProps> = ({
       }
       return false;
     },
-    [resultdef, gamestatedef]
+    [resultdef, gamestatedef, getResult, showPopup]
   );
 
+  // Check if Player's Guess Matches the Keyword
   const checkMatchKeyword = useCallback(() => {
-    setGameState(prevState => {
+    setGameState((prevState) => {
       let newState = { ...prevState };
       const row_index = newState.current_row;
       const target_row = newState.userfill[row_index];
-      const guessedWord = target_row.map(block => block.letter).join('').toLowerCase();
-      
+      const guessedWord = target_row
+        .map((block) => block.letter)
+        .join("")
+        .toLowerCase();
+
       console.log("Checking word:", guessedWord);
       console.log("Current keyword:", newState.keyword);
-  
+
       if (!AllWords.includes(guessedWord)) {
         console.log(guessedWord, "is not in the word list");
         showPopup("Not in word list");
-        return prevState; // Return the previous state without changes
+        return prevState;
       }
-  
+
       let correct = 0;
-      let keywordArr = newState.keyword.toLowerCase().split('');
+      let keywordArr = newState.keyword.toLowerCase().split("");
       let checkedPositions = Array(newState.letter_count).fill(false);
-  
+
       // First pass: Check for correct positions
       for (let i = 0; i < newState.letter_count; i++) {
         if (guessedWord[i] === newState.keyword[i].toLowerCase()) {
           correct++;
           updateBlock(row_index, i, target_row[i].letter, "correct");
-          keywordArr[i] = '';
+          keywordArr[i] = "";
           checkedPositions[i] = true;
         }
       }
-  
+
       // Second pass: Check for present letters
       for (let i = 0; i < newState.letter_count; i++) {
         if (!checkedPositions[i]) {
           const letterIndex = keywordArr.indexOf(guessedWord[i]);
           if (letterIndex !== -1) {
             updateBlock(row_index, i, target_row[i].letter, "present");
-            keywordArr[letterIndex] = '';
+            keywordArr[letterIndex] = "";
           } else {
             updateBlock(row_index, i, target_row[i].letter, "absent");
           }
         }
       }
-  
+
       newState.current_row++;
       newState.current_index = 0;
-  
+
       if (correct === newState.letter_count) {
         newState.result = { player: getResult(newState.userfill) };
         setTimeout(() => {
-          setGameState(prev => ({ ...prev, game_state: 1 }));
+          setGameState((prev) => ({ ...prev, game_state: 1 }));
           gamestatedef(1);
         }, 1500);
         showPopup("Correct! You win!");
@@ -250,21 +236,81 @@ const MultiGame: React.FC<MultiGameProps> = ({
         showPopup("Game over. The word was: " + newState.keyword);
         newState.result = { player: getResult(newState.userfill) };
         setTimeout(() => {
-          setGameState(prev => ({ ...prev, game_state: -1 }));
+          setGameState((prev) => ({ ...prev, game_state: -1 }));
           gamestatedef(-1);
         }, 1500);
       }
 
       // Send the result to the server
-      Server.submitWords(getFullStateOfRow(row_index), row_index, newState.userfill);
-  
+      Server.submitWords(
+        getFullStateOfRow(row_index),
+        row_index,
+        newState.userfill
+      );
+
       return newState;
     });
   }, [updateBlock, showPopup, getResult, gamestatedef]);
 
+  // Update Block State
+  const updateBlock = useCallback(
+    (row: number, col: number, letter: string | undefined, state: string) => {
+      setGameState((prevState) => {
+        const newFill = prevState.userfill.map((rowFill, i) =>
+          i === row
+            ? rowFill.map((block, j) => (j === col ? { letter, state } : block))
+            : rowFill
+        );
+        return { ...prevState, userfill: newFill };
+      });
+    },
+    []
+  );
+
+  // Show Popup Message
+  const showPopup = useCallback((msg: string) => {
+    setGameState((prevState) => ({ ...prevState, popup: msg }));
+    setTimeout(() => {
+      setGameState((prevState) => ({ ...prevState, popup: "" }));
+    }, 1500);
+  }, []);
+
+  // Get Full Word of a Specific Row
+  const getFullWordOfRow = useCallback(
+    (row: number) =>
+      gameState.userfill[row].map((block) => block.letter || "").join(""),
+    [gameState.userfill]
+  );
+
+  // Calculate Result Based on Board State
+  const getResult = useCallback(
+    (board: Array<Array<{ letter: string | undefined; state: string }>>) => {
+      return board
+        .map((row) =>
+          row
+            .map((block) => {
+              switch (block.state) {
+                case "correct":
+                  return "🟩";
+                case "present":
+                  return "🟨";
+                case "absent":
+                  return "⬜";
+                default:
+                  return "";
+              }
+            })
+            .join("")
+        )
+        .join("\n");
+    },
+    []
+  );
+
+  // Get the Full State of a Specific Row
   const getFullStateOfRow = useCallback(
-    (row: number) => {
-      return gameState.userfill[row]
+    (row: number) =>
+      gameState.userfill[row]
         .map((block) => {
           switch (block.state) {
             case "correct":
@@ -277,56 +323,74 @@ const MultiGame: React.FC<MultiGameProps> = ({
               return "";
           }
         })
-        .join("");
-    },
+        .join(""),
     [gameState.userfill]
   );
 
-  const keyboardInput = useCallback((data: { key: string }) => {
-    if (data) {
-      setGameState(prevState => {
-        let newState = { ...prevState };
-        console.log("Key pressed:", data.key);
-        console.log("Current row:", newState.current_row);
-        console.log("Current index:", newState.current_index);
-  
-        if (data.key === "Backspace") {
-          if (newState.current_index > 0) {
-            newState.current_index--;
-            updateBlock(newState.current_row, newState.current_index, undefined, "");
-          }
-        } else if (data.key === "Enter") {
-          if (newState.current_index === newState.letter_count) {
-            checkMatchKeyword();
-          } else {
-            showPopup("Not enough letters");
-          }
-        } else if (data.key.length === 1 && /^[a-zA-Z]$/.test(data.key)) {
-          if (newState.current_index < newState.letter_count) {
-            updateBlock(newState.current_row, newState.current_index, data.key.toUpperCase(), "");
-            newState.current_index++;
-          }
-        }
-  
-        return newState;
-      });
-    }
-  }, [updateBlock, showPopup, checkMatchKeyword]);
+  // Handle Keyboard Input for the Game
+  const keyboardInput = useCallback(
+    (data: { key: string }) => {
+      if (data) {
+        setGameState((prevState) => {
+          let newState = { ...prevState };
+          console.log("Key pressed:", data.key);
+          console.log("Current row:", newState.current_row);
+          console.log("Current index:", newState.current_index);
 
+          if (data.key === "Backspace") {
+            if (newState.current_index > 0) {
+              newState.current_index--;
+              updateBlock(
+                newState.current_row,
+                newState.current_index,
+                undefined,
+                ""
+              );
+            }
+          } else if (data.key === "Enter") {
+            if (newState.current_index === newState.letter_count) {
+              checkMatchKeyword();
+            } else {
+              showPopup("Not enough letters");
+            }
+          } else if (data.key.length === 1 && /^[a-zA-Z]$/.test(data.key)) {
+            if (newState.current_index < newState.letter_count) {
+              updateBlock(
+                newState.current_row,
+                newState.current_index,
+                data.key.toUpperCase(),
+                ""
+              );
+              newState.current_index++;
+            }
+          }
+
+          return newState;
+        });
+      }
+    },
+    [updateBlock, showPopup, checkMatchKeyword]
+  );
+
+  // Add Event Listeners for Keyboard Input
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (['Backspace', 'Enter'].includes(event.key) || /^[a-zA-Z]$/.test(event.key)) {
+      if (
+        ["Backspace", "Enter"].includes(event.key) ||
+        /^[a-zA-Z]$/.test(event.key)
+      ) {
         event.preventDefault();
         keyboardInput({ key: event.key });
       }
     };
-  
+
     window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [keyboardInput]);
 
+  // Render the Game Board and Opponent Board
   const blocks = gameState.userfill.map((row, i) => (
     <div className="row" key={`row${i}`}>
       {row.map((block, j) => (
@@ -355,37 +419,40 @@ const MultiGame: React.FC<MultiGameProps> = ({
     </div>
   ));
 
+  // Main Render Function
   return (
     <div id="game-container">
-      <div id="board-container">
-        <div id="board">{blocks}</div>
-        <div id="opponent-board">
-          <div id="opponent">{opponentBlocks}</div>
-          Opponent's
-        </div>
-      </div>
-      <Keyboard keyref={keyboardInput} />
-      <div className="popup-msg">{gameState.popup}</div>
-      {gameState.game_state !== 0 && (
-        <div className="layer">
-          <div className="dialog">
-            {gameState.game_state === 1 && "You Win!"}
-            {gameState.game_state === -1 && "You Lose!"}
-            {gameState.game_state === 2 && "Tie!"}
-            <br />
-            Answer: {gameState.keyword}
-            <br />
-            Your Result
-            <br />
-            {gameState.result?.player}
-            <br />
-            Opponent's Result
-            <br />
-            {getResult(gameState.opponent.userfill)}
-            <Link href={from}>EXIT</Link>
+      <>
+        <div id="board-container">
+          <div id="board">{blocks}</div>
+          <div id="opponent-board">
+            <div id="opponent">{opponentBlocks}</div>
+            Opponent's
           </div>
         </div>
-      )}
+        <Keyboard keyref={keyboardInput} />
+        <div className="popup-msg">{gameState.popup}</div>
+        {gameState.game_state !== 0 && (
+          <div className="layer">
+            <div className="dialog">
+              {gameState.game_state === 1 && "You Win!"}
+              {gameState.game_state === -1 && "You Lose!"}
+              {gameState.game_state === 2 && "Tie!"}
+              <br />
+              Answer: {gameState.keyword}
+              <br />
+              Your Result
+              <br />
+              {gameState.result?.player}
+              <br />
+              Opponent's Result
+              <br />
+              {getResult(gameState.opponent.userfill)}
+              <Link href={from}>EXIT</Link>
+            </div>
+          </div>
+        )}
+      </>
     </div>
   );
 };

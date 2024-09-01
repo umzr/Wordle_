@@ -1,143 +1,133 @@
-const socketPORT = process.env.PORT+1000 || 4500;
-const answers = require('./word');
+const http = require('http');
+const express = require('express'); // Add express for handling HTTP requests
+const socketIo = require('socket.io');
+const answers = require('./word'); // Ensure this file exports an array of possible answers
 
-console.log(socketPORT)
+const app = express(); // Initialize Express
+const server = http.createServer(app); // Use the same server for express and socket.io
+const io = socketIo(server, {
+  cors: { origin: "*", methods: ["GET", "POST"] },
+});
 
+const socketPORT = process.env.PORT ? parseInt(process.env.PORT) + 1000 : 4500;
+
+app.get('/game/:userid', (req, res) => {
+  const { userid } = req.params;
+  // Logic to handle this request, possibly checking user status or returning user-specific data
+  res.json({ message: 'User found', userid });
+});
 
 class Server {
-
   constructor() {
-      const server = require('http').createServer();
-      const options = { cors:true,
-      origins:"*"};
-      const io = require('socket.io')(server,options);
-      this.io = io;
-      this.onlineplayers = [];
+    this.io = io;
+    this.waitingPlayers = []; // List of players waiting to be matched
 
-      io.on('connection', socket => {
+    io.on('connection', (socket) => {
+      console.log('User connected:', socket.id);
 
-          console.log('user in',socket.id)
-          socket.on('waitRoom', data => {
-              console.log('(waitRoom): '+socket.id);
-              if(!this.onlineplayers.filter(p => p.socketid == socket.id).length > 0){
-                  if(this.onlineplayers.length > 0){
-                      var opponent = this.onlineplayers.pop();
-                      console.log("Now online: ",this.onlineplayers);
-                      console.log("New Game Room: "+socket.id+'|'+opponent.socketid);
+      // Listen for waitRoom event to add the player to the waiting room
+      socket.on('waitRoom', (data) => this.handleWaitRoom(socket, data));
 
-                      var player_keyword;
-                      if(data.keyword == undefined){
-                          //get answers from random
-                          player_keyword = answers[Math.floor(Math.random() * answers.length)];
-                          console.log('player answers',player_keyword);
-                      }else{
-                          player_keyword = data.keyword;
-                          console.log('player answers (rating)',player_keyword);
-                      }
-                      var opponent_keyword;
-                      if(opponent.keyword == undefined){
-                          //get answers from random
-                          opponent_keyword = answers[Math.floor(Math.random() * answers.length)];
-                          console.log('opponent answers',opponent_keyword);
-                      }else{
-                          opponent_keyword = opponent.keyword;
-                          console.log('opponent answers (rating)',opponent_keyword);
-                      }
-                      
+      // Listen for disconnect event to remove the player
+      socket.on('disconnect', () => this.handleDisconnect(socket));
+    });
 
-
-                      io.to(opponent.socketid).emit('gameRoom', {
-                          word:opponent_keyword.words,
-                          opponent:{
-                              socketid:socket.id,
-                              rating:data.rating
-                          }
-                      });
-                      socket.emit('gameRoom', {
-                          word:player_keyword.words,
-                          opponent:{
-                              socketid:opponent.socketid,
-                              rating:opponent.rating
-                          }
-                      });
-
-
-                      var opponentSocket = io.sockets.sockets.get(opponent.socketid);
-
-                      socket.on('submitWord',(data)=>{
-                          console.log('(submitWord)',data);
-                          io.to(opponent.socketid).emit('opponentState',{row:data.row,word:data.word,board:data.board});
-                          
-                      });
-                      opponentSocket.on('submitWord',(data)=>{
-                          console.log('(submitWord)',data);
-                          socket.emit('opponentState',{row:data.row,word:data.word,board:data.board});
-                      });
-
-                  }else{
-                      this.onlineplayers.push({
-                          socketid:socket.id,
-                          userid:data.userid,
-                          keyword:data.keyword,
-                          rating:data.rating
-                      });
-                      console.log("Now online: ",this.onlineplayers);
-                  }
-                  socket.on('cleanServer',(data)=>{
-                      socket.removeAllListeners("submitWord");
-                      socket.removeAllListeners("submitResult");
-                      delete this.onlineplayers.pop(this.onlineplayers.filter(p => p.socketid == socket.id)[0]);
-                      socket.removeAllListeners('cleanServer');
-                  });
-              }else{
-                  console.log('(waitRoom): user exist: '+socket.id);
-              }
-
-              //socket.emit('gameRoom', 'abs');
-          });
-
-          socket.on('disconnect', () => {
-              console.log("A player disconnect:"+socket.id);
-              delete this.onlineplayers.pop(socket.id);
-              //socket.emit('exitRoom');
-          });
-
-
-      });
-
-      server.listen(socketPORT, () => {
-          console.log('(socket)listening on *:'+socketPORT);
-      });
-
+    server.listen(socketPORT, () => {
+      console.log('(socket) listening on *:' + socketPORT);
+    });
   }
 
+  handleWaitRoom(socket, data) {
+    console.log('(waitRoom):', socket.id);
+
+    if (!this.waitingPlayers.some((p) => p.socketId === socket.id)) {
+      const keyword = data.keyword || this.getRandomAnswer();
+
+      this.waitingPlayers.push({
+        socketId: socket.id,
+        userId: data.userid,
+        keyword: keyword,
+        rating: data.rating || 1500,
+      });
+
+      console.log("Now online:", this.waitingPlayers.map(p => p.socketId));
+
+      if (this.waitingPlayers.length === 2) {
+        const player1 = this.waitingPlayers.shift();
+        const player2 = this.waitingPlayers.shift();
+        this.startGame(player1, player2);
+      }
+
+      socket.on('cleanServer', () => this.cleanServer(socket));
+    } else {
+      console.log('(waitRoom): user already exists:', socket.id);
+    }
+  }
+
+  startGame(player1, player2) {
+    console.log("Starting a new game between:", player1.socketId, "and", player2.socketId);
+
+    const player1Keyword = player1.keyword || this.getRandomAnswer();
+    const player2Keyword = player2.keyword || this.getRandomAnswer();
+
+    console.log('Player 1 keyword:', player1Keyword);
+    console.log('Player 2 keyword:', player2Keyword);
+
+    this.io.to(player1.socketId).emit('gameRoom', {
+      word: player1Keyword,
+      opponent: {
+        socketId: player2.socketId,
+        rating: player2.rating,
+      },
+    });
+
+    this.io.to(player2.socketId).emit('gameRoom', {
+      word: player2Keyword,
+      opponent: {
+        socketId: player1.socketId,
+        rating: player1.rating,
+      },
+    });
+
+    this.setupGameListeners(player1.socketId, player2.socketId);
+    this.setupGameListeners(player2.socketId, player1.socketId);
+  }
+
+  setupGameListeners(playerSocketId, opponentSocketId) {
+    const playerSocket = this.io.sockets.sockets.get(playerSocketId);
+    if (playerSocket) {
+      playerSocket.on('submitWord', (data) => {
+        console.log('(submitWord)', data);
+        this.io.to(opponentSocketId).emit('opponentState', { row: data.row, word: data.word, board: data.board });
+      });
+    }
+  }
+
+  handleDisconnect(socket) {
+    console.log("A player disconnected:", socket.id);
+
+    this.waitingPlayers = this.waitingPlayers.filter((p) => p.socketId !== socket.id);
+  }
+
+  cleanServer(socket) {
+    socket.removeAllListeners("submitWord");
+    socket.removeAllListeners("cleanServer");
+    this.waitingPlayers = this.waitingPlayers.filter((p) => p.socketId !== socket.id);
+    console.log("Cleaned server for:", socket.id);
+  }
+
+  getRandomAnswer() {
+    if (answers.length > 0) {
+      return answers[Math.floor(Math.random() * answers.length)];
+    } else {
+      console.error("No answers available in 'answers' array.");
+      return "default";
+    }
+  }
 }
 
-let main = () => {
-  let server = new Server();
+const main = () => {
+  new Server();
 };
 
-main(); 
-
-// import { createServer } from 'http';
-// import { parse } from 'url';
-// import next from 'next';
-// import GameServer from './gameServer';
-
-// const dev = process.env.NODE_ENV !== 'production';
-// const app = next({ dev });
-// const handle = app.getRequestHandler();
-
-// app.prepare().then(() => {
-//   const server = createServer((req, res) => {
-//     const parsedUrl = parse(req.url!, true);
-//     handle(req, res, parsedUrl);
-//   });
-
-//   // Initialize GameServer with the same server
-//   new GameServer(server);
-
-//   server.listen(3000, () => {
-//     console.log('> Ready on http://localhost:3000');
-//   });
-// });
+main();
