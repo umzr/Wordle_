@@ -71,10 +71,7 @@ const MultiGame: React.FC<MultiGameProps> = ({
       opponentChange(data);
     });
 
-    // Start game once server signals readiness
-    Server.onGameStart(() => {
-      setLoading(false); // Stop loading when the game starts
-    });
+  
 
     return () => {
       Server.clearServer();

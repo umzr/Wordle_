@@ -77,23 +77,9 @@ class Server {
     console.log("(waitRoom)");
     this.resetState();
     this.connect();
-
+    console.log("auth", auth);
     try {
-      const response = await axios.get(`/game/${auth.userid}`, {
-        headers: { "Content-Type": "application/json" },
-        withCredentials: true,
-      });
-
-      console.log("response", response);
-      this.state.wordrating = response.data.wordrating || 1501;
-      this.state.rating = response.data.rating || 1501;
-
-      this.socket.emit("waitRoom", {
-        userid: auth.userid,
-        keyword: response.data.keyword,
-        rating: response.data.rating,
-      });
-
+      this.socket.emit("waitRoom", { userid: auth.userid });
       this.socket.once("gameRoom", (data: GameRoomData) => {
         console.log("Received gameRoom event:", data); // Log received data
         callback(data);
