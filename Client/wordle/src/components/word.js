@@ -1,3 +1,5 @@
+// SPOILERS
+// Copied from Wordle source, and jumbled up
 export const answers = [
     'vegan',
     'major',
@@ -2314,9 +2316,9 @@ export const answers = [
     'lumen',
     'clank',
     'spook'
-  ];
+  ]
   
-  export const allowedGuesses =  [
+  const allowedGuesses = [
     'aahed',
     'aalii',
     'aargh',
@@ -12975,4 +12977,8 @@ export const answers = [
     'zymes',
     'zymic'
   ]
-  ;
+  
+  const AllWords = [...answers, ...allowedGuesses]
+
+  export default AllWords;
+  
