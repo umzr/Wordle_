@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Server from "./Mserver";
 import { BlockProps, MultiGameProps, MultiGameState } from "@/Types/game";
-import { CircularProgress } from "@mui/material";
+
 
 // Block Component for each cell in the game board
 const Block: React.FC<BlockProps> = ({
@@ -70,8 +70,6 @@ const MultiGame: React.FC<MultiGameProps> = ({
     Server.receiveOpponentState((data) => {
       opponentChange(data);
     });
-
-  
 
     return () => {
       Server.clearServer();
@@ -240,7 +238,7 @@ const MultiGame: React.FC<MultiGameProps> = ({
 
       // Send the result to the server
       Server.submitWords(
-        getFullStateOfRow(row_index),
+        getFullStateOfRow(row_index),  // <-- Ensure this is in the correct scope
         row_index,
         newState.userfill
       );
