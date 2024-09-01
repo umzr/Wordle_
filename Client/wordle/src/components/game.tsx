@@ -84,6 +84,23 @@ const Game: React.FC = () => {
     return "";
   }, [gameState.userfill]);
 
+  const getResult = (board: Array<Array<{ letter: string | undefined; state: string }>>) => {
+    let result = "";
+    for (let i = 0; i < gameState.row_count; i++) {
+      for (let j = 0; j < gameState.letter_count; j++) {
+        if (board[i][j].state === "correct") {
+          result += "🟩";
+        } else if (board[i][j].state === "present") {
+          result += "🟨";
+        } else if (board[i][j].state === "absent") {
+          result += "⬜";
+        }
+      }
+      result += "\n";
+    }
+    return result;
+  };
+  
   const checkMatchKeyword = useCallback(() => {
     setGameState(prevState => {
       let newState = { ...prevState };
@@ -190,22 +207,6 @@ const Game: React.FC = () => {
     };
   }, [keyboardInput]);
 
-  const getResult = (board: Array<Array<{ letter: string | undefined; state: string }>>) => {
-    let result = "";
-    for (let i = 0; i < gameState.row_count; i++) {
-      for (let j = 0; j < gameState.letter_count; j++) {
-        if (board[i][j].state === "correct") {
-          result += "🟩";
-        } else if (board[i][j].state === "present") {
-          result += "🟨";
-        } else if (board[i][j].state === "absent") {
-          result += "⬜";
-        }
-      }
-      result += "\n";
-    }
-    return result;
-  };
 
   const blocks = gameState.userfill.map((row, i) => (
     <div className="row" key={`row${i}`}>
