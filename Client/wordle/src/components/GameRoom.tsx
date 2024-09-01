@@ -105,7 +105,7 @@ const GameRoom: React.FC = () => {
 
       {/* Original MultiGame Component */}
       <MultiGame
-        keyword={gameData?.keyword || "apple"} // Provide a fallback value if gameData or keyword is undefined
+        keyword={gameData?.keyword|| 'apple'} // Provide a fallback value if gameData or keyword is undefined
         resultdef={handleGameResult}
         gamestatedef={handleGameStateChange}
       />

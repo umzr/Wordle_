@@ -109,6 +109,7 @@ class Server {
   }
 
   submitWords(word: string, row: number, board: any) {
+    
     const data: SubmitWordData = {
       row,
       word,

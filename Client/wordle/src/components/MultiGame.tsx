@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Server from "./Mserver";
 import { BlockProps, MultiGameProps, MultiGameState } from "@/Types/game";
-import { CircularProgress } from "@mui/material";
+
 
 // Block Component for each cell in the game board
 const Block: React.FC<BlockProps> = ({
@@ -290,7 +290,7 @@ const MultiGame: React.FC<MultiGameProps> = ({
           }
         })
         .join("");
-      console.log(`fk getFullStateOfRow for row ${row}:`, rowState); // Debugging line to check the row state
+      console.log(`getFullStateOfRow for row ${row}:`, rowState); // Debugging line to check the row state
       return rowState;
     },
     [gameState.userfill]
