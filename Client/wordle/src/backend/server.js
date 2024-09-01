@@ -31,23 +31,22 @@ class Server {
     io.on('connection', (socket) => {
       console.log('User connected:', socket.id);
 
-      // Generate a random player name and room name
+      // Generate a random player name
       const playerName = generateRandomString();
-      const roomName = generateRandomString(6);
 
-      // Join a room or create a new one
-      socket.join(roomName);
-      this.rooms[roomName] = this.rooms[roomName] || [];
-      this.rooms[roomName].push({ socketId: socket.id, playerName });
+      // Add player to the waiting pool
+      this.waitingPlayers.push({ socketId: socket.id, playerName });
 
-      console.log(`Player ${playerName} joined room ${roomName}`);
+      console.log(`Player ${playerName} added to the waiting pool.`);
 
-      // Notify the frontend about the room and player details
-      socket.emit('roomDetails', { roomName, playerName });
+      // Attempt to match players if there are enough in the pool
+      if (this.waitingPlayers.length >= 2) {
+        this.matchPlayers();
+      }
 
       // Listen for game-related events
-      socket.on('waitRoom', (data) => this.handleWaitRoom(socket, data, roomName));
-      socket.on('disconnect', () => this.handleDisconnect(socket, roomName));
+      socket.on('waitRoom', (data) => this.handleWaitRoom(socket, data));
+      socket.on('disconnect', () => this.handleDisconnect(socket));
     });
 
     server.listen(socketPORT, () => {
@@ -55,8 +54,42 @@ class Server {
     });
   }
 
-  handleWaitRoom(socket, data, roomName) {
+  matchPlayers() {
+    if (this.waitingPlayers.length >= 2) {
+      // Take two players from the waiting pool
+      const player1 = this.waitingPlayers.shift();
+      const player2 = this.waitingPlayers.shift();
+
+      // Create a new room name
+      const roomName = generateRandomString(6);
+
+      // Add the room to the rooms list
+      this.rooms[roomName] = [player1, player2];
+
+      // Join the players to the new room
+      player1.roomName = roomName;
+      player2.roomName = roomName;
+      this.io.to(player1.socketId).to(player2.socketId).socketsJoin(roomName);
+
+      console.log(`Matched players ${player1.playerName} and ${player2.playerName} into room ${roomName}`);
+
+      // Notify the frontend about the room and player details
+      this.io.to(player1.socketId).emit('roomDetails', { roomName, playerName: player1.playerName });
+      this.io.to(player2.socketId).emit('roomDetails', { roomName, playerName: player2.playerName });
+
+      // Start the game
+      this.startGame(player1, player2, roomName);
+    }
+  }
+
+  handleWaitRoom(socket, data) {
     console.log('(waitRoom):', socket.id);
+
+    // Get the player from the socket ID
+    const player = this.getPlayerBySocketId(socket.id);
+    if (!player || !player.roomName) return;
+
+    const roomName = player.roomName;
 
     // Get the keyword or assign a random one if not provided
     const keyword = data.keyword || this.getRandomAnswer();
@@ -106,16 +139,30 @@ class Server {
     }
   }
 
-  handleDisconnect(socket, roomName) {
+  handleDisconnect(socket) {
     console.log("A player disconnected:", socket.id);
 
-    // Remove the player from the room
-    this.rooms[roomName] = this.rooms[roomName].filter(p => p.socketId !== socket.id);
+    // Find and remove the player from the waiting pool
+    this.waitingPlayers = this.waitingPlayers.filter(player => player.socketId !== socket.id);
 
-    // If room is empty, delete it
-    if (this.rooms[roomName].length === 0) {
-      delete this.rooms[roomName];
+    // Find and remove the player from any room
+    for (const [roomName, players] of Object.entries(this.rooms)) {
+      this.rooms[roomName] = players.filter(p => p.socketId !== socket.id);
+      if (this.rooms[roomName].length === 0) {
+        delete this.rooms[roomName];
+      }
     }
+  }
+
+  getPlayerBySocketId(socketId) {
+    for (const players of Object.values(this.rooms)) {
+      for (const player of players) {
+        if (player.socketId === socketId) {
+          return player;
+        }
+      }
+    }
+    return null;
   }
 
   getRandomAnswer() {

@@ -57,7 +57,7 @@ const GameRoom: React.FC = () => {
   console.log(gameData.keyword, 'gameData.keyword');
 
   return (
-    <div>fk</div>
+    <div>[{gameData.keyword}]</div>
     //   <MultiGame
     //     keyword={gameData.keyword}
     //     resultdef={handleGameResult}

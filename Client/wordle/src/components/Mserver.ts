@@ -10,7 +10,7 @@ import {
 const URL = "http://localhost:4500"; // Ensure this matches your server URL and port
 
 class Server {
-  private socket: Socket;
+  public socket: Socket; // Make socket public for direct access
   private state: ServerState;
 
   constructor() {
@@ -35,7 +35,7 @@ class Server {
 
     this.socket.on("gameRoom", (data: GameRoomData) => {
       console.log("(gameRoom): ", data);
-      this.state.opponentId = data.opponent.socketid;
+      this.state.opponentId = data.opponent.socketId;
       this.state.opponentrating = data.opponent.rating || 1501;
     });
 
@@ -51,6 +51,10 @@ class Server {
 
     this.socket.on("disconnect", () => {
       console.log("Disconnected from the socket server");
+    });
+
+    this.socket.on("roomDetails", (data) => {
+      console.log("Received room details:", data); // Log received data
     });
   }
 
@@ -91,6 +95,7 @@ class Server {
       });
 
       this.socket.once("gameRoom", (data: GameRoomData) => {
+        console.log("Received gameRoom event:", data); // Log received data
         callback(data);
       });
     } catch (err) {
