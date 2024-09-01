@@ -1,0 +1,12 @@
+{
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "server:build": "tsc -p src/backend/tsconfig.json",
+    "server": "node src/backend/dist/gameServer.js",
+    "dev:all": "concurrently \"npm run dev\" \"npm run server:build && npm run server\"",
+    "start:all": "concurrently \"npm run start\" \"npm run server\""
+  }
+}

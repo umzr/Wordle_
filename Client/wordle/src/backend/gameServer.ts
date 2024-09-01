@@ -1,6 +1,7 @@
-import { Server as HTTPServer } from 'http';
+
+import { createServer, Server as HTTPServer } from 'http';
 import { Server as SocketIOServer, Socket } from 'socket.io';
-import { answers } from '../src/app/components/word';
+import AllWords from './word';
 
 const socketPORT = process.env.SOCKET_PORT || 4500;
 
@@ -15,18 +16,23 @@ class GameServer {
   private io: SocketIOServer;
   private onlineplayers: OnlinePlayer[] = [];
 
-  constructor(server: HTTPServer) {
+  constructor(server?: HTTPServer) {
+    const httpServer = server || createServer();
     const options = { 
-      cors: true,
-      origins: "*"
+      cors: {
+        origin: "*",
+        methods: ["GET", "POST"]
+      }
     };
-    this.io = new SocketIOServer(server, options);
+    this.io = new SocketIOServer(httpServer, options);
 
     this.io.on('connection', this.handleConnection.bind(this));
 
-    server.listen(socketPORT, () => {
-      console.log(`(socket) listening on *:${socketPORT}`);
-    });
+    if (!server) {
+      httpServer.listen(socketPORT, () => {
+        console.log(`(socket) listening on *:${socketPORT}`);
+      });
+    }
   }
 
   private handleConnection(socket: Socket) {
@@ -78,7 +84,7 @@ class GameServer {
 
   private getKeyword(keyword?: string) {
     if (keyword === undefined) {
-      return answers[Math.floor(Math.random() * answers.length)];
+      return AllWords[Math.floor(Math.random() * AllWords.length)];
     }
     return keyword;
   }
@@ -129,4 +135,12 @@ class GameServer {
   }
 }
 
+// Create and export an instance if this file is run directly
+if (require.main === module) {
+  new GameServer();
+}
+
 export default GameServer;
+
+
+

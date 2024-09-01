@@ -1,7 +1,0 @@
-{
-    "scripts": {
-      "dev": "ts-node --project tsconfig.server.json Server/server.ts",
-      "build": "next build",
-      "start": "NODE_ENV=production ts-node --project tsconfig.server.json Server/server.ts"
-    }
-  }
