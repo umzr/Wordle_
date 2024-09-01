@@ -3,8 +3,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './game.css';
 import Keyboard from './keyboard';
-import EventBus from './eventbus';
-import { Button } from '@mui/material';
 import AllWords, { answers } from './word';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -16,12 +14,7 @@ interface BlockProps {
   isRevealed: boolean;
 }
 
-const Block: React.FC<BlockProps> = ({
-  letter,
-  state,
-  isFilled,
-  isRevealed,
-}) => {
+const Block: React.FC<BlockProps> = ({ letter, state, isFilled, isRevealed }) => {
   const filled = isFilled ? " filled" : "";
   const revealed = isRevealed ? " revealed" : "";
 
@@ -45,180 +38,159 @@ interface GameState {
   result: { player: string; opponent?: string } | undefined;
 }
 
-
 const Game: React.FC = () => {
   const searchParams = useSearchParams();
   const from = searchParams.get('from') || '/';
 
-  const [gameState, setGameState] = useState<GameState>({
-    keyword: '',
-    current_row: 0,
-    current_index: 0,
-    letter_count: 5,
-    row_count: 6,
-    userfill: [],
-    popup: '',
-    game_state: 0,
-    result: undefined
+  const [gameState, setGameState] = useState<GameState>(() => {
+    const keyword = answers[Math.floor(Math.random() * answers.length)];
+    return {
+      keyword,
+      current_row: 0,
+      current_index: 0,
+      letter_count: keyword.length,
+      row_count: 6,
+      userfill: Array(6).fill(null).map(() => Array(keyword.length).fill({ letter: undefined, state: "" })),
+      popup: '',
+      game_state: 0,
+      result: undefined
+    };
   });
 
   useEffect(() => {
-    const keyword = answers[Math.floor(Math.random() * answers.length)];
-    const userfill = Array(6).fill(null).map(() =>
-      Array(5).fill({ letter: undefined, state: '' })
-    );
-
-    setGameState(prevState => ({
-      ...prevState,
-      keyword,
-      letter_count: keyword.length,
-      userfill
-    }));
-
-    console.log("keyword", keyword);
+    console.log("Initialized gameState with keyword:", gameState.keyword);
   }, []);
 
-  useEffect(() => {
-    const keyword = answers[Math.floor(Math.random() * answers.length)];
-    const userfill = Array(6)
-      .fill(null)
-      .map(() => Array(5).fill({ letter: undefined, state: "" }));
-
-    setGameState((prevState) => ({
-      ...prevState,
-      keyword,
-      letter_count: keyword.length,
-      userfill,
-    }));
-
-    console.log("keyword", keyword);
-  }, []);
-
-  const keyboardInput = (data: { key: string }) => {
-    if (data) {
-      setGameState((prevState) => {
-        let newState = { ...prevState };
-
-        if (data.key === "Backspace") {
-          if (newState.current_index > 0) {
-            newState.current_index--;
-            updateBlock(
-              newState.current_row,
-              newState.current_index,
-              undefined,
-              ""
-            );
-          }
-        } else if (data.key === "Enter") {
-          if (newState.current_index >= newState.letter_count) {
-            if (AllWords.includes(getFullWordOfRow(newState.current_row))) {
-              checkMatchKeyword();
-              // Move the row increment inside checkMatchKeyword to avoid incorrect increments
-            } else {
-              showPopup("The word is not in word list");
-            }
-          } else {
-            showPopup("The block is not full-filled");
-          }
-        } else {
-          if (newState.current_index < newState.letter_count) {
-            updateBlock(
-              newState.current_row,
-              newState.current_index,
-              data.key,
-              ""
-            );
-            newState.current_index++;
-          }
-        }
-
-        return newState;
-      });
-    }
-  };
-
-  const updateBlock = (
-    row: number,
-    col: number,
-    letter: string | undefined,
-    state: string
-  ) => {
-    setGameState((prevState) => {
+  const updateBlock = useCallback((row: number, col: number, letter: string | undefined, state: string) => {
+    setGameState(prevState => {
       const newFill = [...prevState.userfill];
       newFill[row][col] = { letter, state };
       return { ...prevState, userfill: newFill };
     });
-  };
+  }, []);
 
-  const checkMatchKeyword = () => {
-    setGameState((prevState) => {
+  const showPopup = useCallback((msg: string) => {
+    setGameState(prevState => ({ ...prevState, popup: msg }));
+    setTimeout(() => {
+      setGameState(prevState => ({ ...prevState, popup: "" }));
+    }, 1500);
+  }, []);
+
+  const getFullWordOfRow = useCallback((row: number) => {
+    if (gameState.userfill && Array.isArray(gameState.userfill[row])) {
+      return gameState.userfill[row].map(block => block.letter || "").join("");
+    }
+    console.warn(`Row ${row} is out of bounds or not defined.`);
+    return "";
+  }, [gameState.userfill]);
+
+  const checkMatchKeyword = useCallback(() => {
+    setGameState(prevState => {
       let newState = { ...prevState };
-      const row_index = newState.current_row; // Current row to process
-      newState.current_index = 0; // Reset index after processing
-
+      const row_index = newState.current_row;
       const target_row = newState.userfill[row_index];
+      const guessedWord = target_row.map(block => block.letter).join('').toLowerCase();
+      
+      console.log("Checking word:", guessedWord);
+      console.log("Current keyword:", newState.keyword);
+  
+      if (!AllWords.includes(guessedWord)) {
+        showPopup("Not in word list");
+        return prevState; // Return the previous state without changes
+      }
+  
       let correct = 0;
-      let keywordArr = newState.keyword.split("");
+      let keywordArr = newState.keyword.toLowerCase().split('');
       let checkedPositions = Array(newState.letter_count).fill(false);
-
+  
       // First pass: Check for correct positions
       for (let i = 0; i < newState.letter_count; i++) {
-        if (target_row[i].letter === newState.keyword.charAt(i)) {
+        if (guessedWord[i] === newState.keyword[i].toLowerCase()) {
           correct++;
           updateBlock(row_index, i, target_row[i].letter, "correct");
-          keywordArr[i] = ""; // Mark the letter as used
+          keywordArr[i] = '';
           checkedPositions[i] = true;
         }
       }
-
+  
       // Second pass: Check for present letters
       for (let i = 0; i < newState.letter_count; i++) {
         if (!checkedPositions[i]) {
-          const letterIndex = keywordArr.indexOf(target_row[i].letter || "");
+          const letterIndex = keywordArr.indexOf(guessedWord[i]);
           if (letterIndex !== -1) {
             updateBlock(row_index, i, target_row[i].letter, "present");
-            keywordArr[letterIndex] = ""; // Mark the letter as used
+            keywordArr[letterIndex] = '';
           } else {
             updateBlock(row_index, i, target_row[i].letter, "absent");
           }
         }
       }
-
-      // Only increment the row here after all checks
+  
       newState.current_row++;
-
-      if (correct >= newState.letter_count) {
+      newState.current_index = 0;
+  
+      if (correct === newState.letter_count) {
         newState.result = { player: getResult(newState.userfill) };
-        setTimeout(() => updateGameState(1), 1500);
+        setTimeout(() => setGameState(prev => ({ ...prev, game_state: 1 })), 1500);
+        showPopup("Correct! You win!");
       } else if (newState.current_row >= newState.row_count) {
-        showPopup("All Chances are used");
+        showPopup("Game over. The word was: " + newState.keyword);
         newState.result = { player: getResult(newState.userfill) };
-        setTimeout(() => updateGameState(-1), 1500);
+        setTimeout(() => setGameState(prev => ({ ...prev, game_state: -1 })), 1500);
       }
-
+  
       return newState;
     });
-  };
+  }, [updateBlock, showPopup, getResult]);
 
-  const updateResult = (playerResult: string, opponentResult: string) => {
-    setGameState((prevState) => ({
-      ...prevState,
-      result: { player: playerResult, opponent: opponentResult },
-    }));
-  };
 
-  const updateGameState = (state: number) => {
-    setGameState((prevState) => {
-      if (prevState.game_state === 0) {
-        return { ...prevState, game_state: state };
+  const keyboardInput = useCallback((data: { key: string }) => {
+    if (data) {
+      setGameState(prevState => {
+        let newState = { ...prevState };
+        console.log("Key pressed:", data.key);
+        console.log("Current row:", newState.current_row);
+        console.log("Current index:", newState.current_index);
+  
+        if (data.key === "Backspace") {
+          if (newState.current_index > 0) {
+            newState.current_index--;
+            updateBlock(newState.current_row, newState.current_index, undefined, "");
+          }
+        } else if (data.key === "Enter") {
+          if (newState.current_index === newState.letter_count) {
+            checkMatchKeyword();
+          } else {
+            showPopup("Not enough letters");
+          }
+        } else if (data.key.length === 1 && /^[a-zA-Z]$/.test(data.key)) {
+          if (newState.current_index < newState.letter_count) {
+            updateBlock(newState.current_row, newState.current_index, data.key.toUpperCase(), "");
+            newState.current_index++;
+          }
+        }
+  
+        return newState;
+      });
+    }
+  }, [updateBlock, showPopup, checkMatchKeyword]);
+  // Update the useEffect for keyboard events
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Prevent default behavior for game-related keys
+      if (['Backspace', 'Enter'].includes(event.key) || /^[a-zA-Z]$/.test(event.key)) {
+        event.preventDefault();
+        keyboardInput({ key: event.key });
       }
-      return prevState;
-    });
-  };
+    };
+  
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [keyboardInput]);
 
-  const getResult = (
-    board: Array<Array<{ letter: string | undefined; state: string }>>
-  ) => {
+  const getResult = (board: Array<Array<{ letter: string | undefined; state: string }>>) => {
     let result = "";
     for (let i = 0; i < gameState.row_count; i++) {
       for (let j = 0; j < gameState.letter_count; j++) {
@@ -233,17 +205,6 @@ const Game: React.FC = () => {
       result += "\n";
     }
     return result;
-  };
-
-  const getFullWordOfRow = (row: number) => {
-    return gameState.userfill[row].map((block) => block.letter).join("");
-  };
-
-  const showPopup = (msg: string) => {
-    setGameState((prevState) => ({ ...prevState, popup: msg }));
-    setTimeout(() => {
-      setGameState((prevState) => ({ ...prevState, popup: "" }));
-    }, 1500);
   };
 
   const blocks = gameState.userfill.map((row, i) => (
