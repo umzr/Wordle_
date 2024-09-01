@@ -1,0 +1,53 @@
+#keyboard-container {
+  width: 100%;
+  max-width: 500px;
+  margin: 0 auto;
+}
+
+#keyboard {
+  margin: 0 8px 0;
+  user-select: none;
+}
+
+  
+.keyboard-row {
+  display: flex;
+  width: 100%;
+  margin: 0 auto 8px;
+  touch-action: manipulation;
+}
+
+.keyboard-btn {
+  font-family: inherit;
+  font-weight: 600;
+  border: 0;
+  padding: 0;
+  margin: 0 6px 0 0;
+  height: 58px;
+  border-radius: 4px;
+  cursor: pointer;
+  user-select: none;
+  flex: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  text-transform: uppercase;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.3);
+  transition: all 0.2s 1.5s;
+}
+
+.keyboard-btn {
+  background-color: #d3d6da;
+  color: #1a1a1b;
+}
+
+.spacer {
+  flex: 0.5;
+}
+
+button .big {
+  flex: 1.5;
+}
+button .big {
+  font-size: 14px !important;
+}
