@@ -100,7 +100,7 @@ const Game: React.FC = () => {
     }
     return result;
   };
-  
+
   const checkMatchKeyword = useCallback(() => {
     setGameState(prevState => {
       let newState = { ...prevState };
@@ -112,6 +112,7 @@ const Game: React.FC = () => {
       console.log("Current keyword:", newState.keyword);
   
       if (!AllWords.includes(guessedWord)) {
+        console.log(guessedWord, "is not in the word list");
         showPopup("Not in word list");
         return prevState; // Return the previous state without changes
       }

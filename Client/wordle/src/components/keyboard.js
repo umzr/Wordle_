@@ -3,7 +3,6 @@
 import React from 'react';
 import './keyboard.css';
 import BackspaceIcon from '@mui/icons-material/Backspace';
-import EventBus from './eventbus';
 
 const rows = [
   'qwertyuiop'.split(''),
