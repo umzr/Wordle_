@@ -13,9 +13,10 @@ interface OnlinePlayer {
 }
 
 class GameServer {
+
   private io: SocketIOServer;
   private onlineplayers: OnlinePlayer[] = [];
-
+  
   constructor(server?: HTTPServer) {
     const httpServer = server || createServer();
     const options = { 

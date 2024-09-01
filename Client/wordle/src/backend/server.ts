@@ -13,9 +13,10 @@ app.prepare().then(() => {
     handle(req, res, parsedUrl);
   });
 
+  // Initialize GameServer with the same server
   new GameServer(server);
 
-  server.listen(3000, () => {
-    console.log('> Ready on http://localhost:3000');
-  });
+  // server.listen(3000, () => {
+  //   console.log('> Ready on http://localhost:3000');
+  // });
 });

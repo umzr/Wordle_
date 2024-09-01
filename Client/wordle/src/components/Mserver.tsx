@@ -7,7 +7,7 @@ import {
   RatingData,
 } from "@/Types/server";
 
-const URL = "http://localhost:4500";
+const URL = "http://localhost:4500"; // or whatever port you choose for Socket.IO
 
 class Server {
   private socket: Socket;

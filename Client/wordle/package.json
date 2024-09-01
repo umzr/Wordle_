@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "server:build": "tsc -p src/backend",
-    "server": "ts-node src/backend/gameServer.ts",
+    "server": "ts-node src/backend/server.ts",
     "dev:all": "concurrently \"npm run dev\" \"npm run server:build && npm run server\"",
     "start:all": "concurrently \"npm run start\" \"npm run server\""
   },
