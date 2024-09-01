@@ -7,16 +7,26 @@ import { CircularProgress } from "@mui/material"; // For loading spinner
 import Server from "./Mserver"; // Ensure the correct path for your Server module
 
 const GameRoom: React.FC = () => {
-  const router = useRouter(); // Use useRouter from Next.js
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [gameData, setGameData] = useState<{ keyword: string } | null>(null);
+  const [gameData, setGameData] = useState<{ keyword: string; roomName: string; playerName: string } | null>(null);
 
   useEffect(() => {
-    // Initialize connection and wait for room data
-    Server.waitRoom({ userid: "player1" }, (data) => {
-      setGameData({ keyword: data.word });
+    Server.connect(); // Connect to the server
+
+    Server.waitRoom({ userid: "random-user" }, (data) => {
+      setGameData({ keyword: data.word, roomName: data.roomName, playerName: data.playerName });
       setLoading(false);
     });
+
+    Server.socket.on('roomDetails', (data) => {
+      setGameData(data);
+      setLoading(false);
+    });
+
+    return () => {
+      Server.disconnect();
+    };
   }, []);
 
   const handleGameResult = (playerResult: string, opponentResult: string) => {
@@ -44,13 +54,15 @@ const GameRoom: React.FC = () => {
       </div>
     );
   }
+  console.log(gameData.keyword, 'gameData.keyword');
 
   return (
-    <MultiGame
-      keyword={gameData.keyword}
-      resultdef={handleGameResult}
-      gamestatedef={handleGameStateChange}
-    />
+    <div>fk</div>
+    //   <MultiGame
+    //     keyword={gameData.keyword}
+    //     resultdef={handleGameResult}
+    //     gamestatedef={handleGameStateChange}
+    //   />
   );
 };
 
