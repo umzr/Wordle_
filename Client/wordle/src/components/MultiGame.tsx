@@ -8,7 +8,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import Server from "./Mserver";
 import { BlockProps, MultiGameProps, MultiGameState } from "@/Types/game";
-
+import { CircularProgress } from "@mui/material";
 
 // Block Component for each cell in the game board
 const Block: React.FC<BlockProps> = ({
@@ -37,8 +37,6 @@ const MultiGame: React.FC<MultiGameProps> = ({
   const searchParams = useSearchParams();
   const from = searchParams.get("from") || "/";
 
-  const [loading, setLoading] = useState(true); // Add loading state
-
   // State Initialization
   const [gameState, setGameState] = useState<MultiGameState>(() => ({
     keyword,
@@ -47,7 +45,7 @@ const MultiGame: React.FC<MultiGameProps> = ({
     letter_count: keyword.length,
     row_count: 6,
     userfill: Array.from({ length: 6 }, () =>
-      Array(keyword.length).fill({ letter: undefined, state: "" })
+      Array(keyword.length).fill({ letter: "", state: "" })
     ),
     popup: "",
     game_state: 0,
@@ -55,7 +53,7 @@ const MultiGame: React.FC<MultiGameProps> = ({
     opponent: {
       current_row: 0,
       userfill: Array.from({ length: 6 }, () =>
-        Array(keyword.length).fill({ letter: undefined, state: "" })
+        Array(keyword.length).fill({ letter: "", state: "" })
       ),
     },
   }));
@@ -89,11 +87,11 @@ const MultiGame: React.FC<MultiGameProps> = ({
                 ? rowFill.map((block, j) => {
                     switch (data.word.charAt(j)) {
                       case "c":
-                        return { letter: undefined, state: "correct" };
+                        return { letter: "c", state: "correct" };
                       case "p":
-                        return { letter: undefined, state: "present" };
+                        return { letter: "p", state: "present" };
                       case "a":
-                        return { letter: undefined, state: "absent" };
+                        return { letter: "a", state: "absent" };
                       default:
                         return block;
                     }
@@ -237,15 +235,13 @@ const MultiGame: React.FC<MultiGameProps> = ({
       }
 
       // Send the result to the server
-      Server.submitWords(
-        getFullStateOfRow(row_index),  // <-- Ensure this is in the correct scope
-        row_index,
-        newState.userfill
-      );
+      const rowState = getFullStateOfRow(row_index);  // <-- Ensure this is in the correct scope
+      console.log('Row State to Submit:', rowState); // Debugging line to check what is being submitted
+      Server.submitWords(rowState, row_index, newState.userfill);
 
       return newState;
     });
-  }, [updateBlock, showPopup, getResult, gamestatedef]);
+  }, [updateBlock, showPopup, getResult, gamestatedef, getFullStateOfRow]);
 
   // Update Block State
   const updateBlock = useCallback(
@@ -270,16 +266,41 @@ const MultiGame: React.FC<MultiGameProps> = ({
     }, 1500);
   }, []);
 
-  // Get Full Word of a Specific Row
-  const getFullWordOfRow = useCallback(
-    (row: number) =>
-      gameState.userfill[row].map((block) => block.letter || "").join(""),
+
+
+  // Get Full State of a Specific Row
+  const getFullStateOfRow = useCallback(
+    (row: number) => {
+      if (!gameState.userfill[row]) {
+        console.error(`Row ${row} is not initialized properly.`);
+        return "";
+      }
+      console.log(gameState.userfill[row])
+      const rowState = gameState.userfill[row]
+        .map((block) => {
+          switch (block.state) {
+            case "correct":
+              return "c";
+            case "present":
+              return "p";
+            case "absent":
+              return "a";
+            default:
+              return "";
+          }
+        })
+        .join("");
+      console.log(`fk getFullStateOfRow for row ${row}:`, rowState); // Debugging line to check the row state
+      return rowState;
+    },
     [gameState.userfill]
   );
 
   // Calculate Result Based on Board State
   const getResult = useCallback(
-    (board: Array<Array<{ letter: string | undefined; state: string }>>) => {
+    (
+      board: Array<Array<{ letter: string | undefined; state: string }>>
+    ) => {
       return board
         .map((row) =>
           row
@@ -300,26 +321,6 @@ const MultiGame: React.FC<MultiGameProps> = ({
         .join("\n");
     },
     []
-  );
-
-  // Get the Full State of a Specific Row
-  const getFullStateOfRow = useCallback(
-    (row: number) =>
-      gameState.userfill[row]
-        .map((block) => {
-          switch (block.state) {
-            case "correct":
-              return "c";
-            case "present":
-              return "p";
-            case "absent":
-              return "a";
-            default:
-              return "";
-          }
-        })
-        .join(""),
-    [gameState.userfill]
   );
 
   // Handle Keyboard Input for the Game
