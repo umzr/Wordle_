@@ -21,6 +21,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/components/Keyboard.js", "src/components/game.tsx", "src/backend/server.js"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/components/Keyboard.js", "src/components/game.tsx", "src/backend/server.js", "src/components/mserver.js", "src/components/MultiGame.js"],
   "exclude": ["node_modules"]
 }

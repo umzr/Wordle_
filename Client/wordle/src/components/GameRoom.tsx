@@ -5,7 +5,7 @@ import { v4 as uuidv4 } from "uuid"; // Import the UUID function
 import MultiGame from "./MultiGame"; // Ensure the correct path
 import { useRouter } from "next/navigation"; // Import useRouter from Next.js
 import { CircularProgress } from "@mui/material"; // For loading spinner
-import Server from "./Mserver"; // Ensure the correct path for your Server module
+import Server from "./mserver"; // Ensure the correct path for your Server module
 
 const GameRoom: React.FC = () => {
   const router = useRouter();
@@ -105,7 +105,7 @@ const GameRoom: React.FC = () => {
 
       {/* Original MultiGame Component */}
       <MultiGame
-        keyword={gameData?.keyword|| 'apple'} // Provide a fallback value if gameData or keyword is undefined
+        keyword={gameData?.keyword || "apple"} // Provide a fallback value if gameData or keyword is undefined
         resultdef={handleGameResult}
         gamestatedef={handleGameStateChange}
       />
