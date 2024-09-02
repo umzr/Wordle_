@@ -1,8 +1,7 @@
-'use client';
-
 import React from 'react';
 import './keyboard.css';
 import BackspaceIcon from '@mui/icons-material/Backspace';
+import EventBus from './eventbus';
 
 const rows = [
   'qwertyuiop'.split(''),
@@ -10,10 +9,9 @@ const rows = [
   ['Enter', ...'zxcvbnm'.split(''), 'Backspace']
 ];
 
-const KeyboardButton = ({ keyboard_key, keyref }) => {
+const KeyboardButton = ({ keyboard_key }) => {
   const clickBtn = (key) => {
-    keyref({ key: key });
-    // EventBus.dispatch("CustomKeyDown", { key: key });
+    EventBus.dispatch("CustomKeyDown", { key: key });
   };
 
   let child;
@@ -40,10 +38,10 @@ const KeyboardButton = ({ keyboard_key, keyref }) => {
   );
 };
 
-const Keyboard = ({ keyref }) => {
+const Keyboard = () => {
   const keyboard = rows.map((row, i) => {
     let keyboard_rows = row.map((key, j) => (
-      <KeyboardButton keyref={keyref} key={`${i}-${j}`} keyboard_key={key} />
+      <KeyboardButton key={`${i}-${j}`} keyboard_key={key} />
     ));
 
     if (i === 1) {

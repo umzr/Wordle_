@@ -13,6 +13,6 @@
       "@/*": ["src/*"] // Map '@' to 'src' directory
     }
   },
-  "include": ["**/*.ts", "**/*.d.ts", "server.js"], // Include all TypeScript files in current directory
+  "include": ["**/*.ts", "**/*.d.ts", "server.js", "word.ts"], // Include all TypeScript files in current directory
   "exclude": ["node_modules", "dist"]
 }
