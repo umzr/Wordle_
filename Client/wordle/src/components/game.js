@@ -3,6 +3,7 @@ import './game.css';
 import Keyboard from './keyboard';
 import EventBus from './eventbus';
 import AllWords from './word';
+import { answers } from './word';
 
 //call it using <Game />
 
@@ -31,13 +32,18 @@ export default class Game extends React.Component {
 		super(props);
 		//it should be modify by not-fixed data
 		this.state = {
-			keyword: 'apple',
+			keyword: '',
 			current_row:0,
 			current_index:0,
-			letter_count: 'apple'.length,
+			letter_count: ''.length,
 			row_count:6,
-			userfill: null
+			userfill: undefined,
+			popup: '',
+			game_state: 0,
+			result: undefined
 		};
+		this.state.keyword = answers[Math.floor(Math.random() * answers.length)];
+		this.state.letter_count = this.state.keyword.length;
 		//inital the 6*5 game board with null
 		this.state.userfill = Array(this.state.row_count).fill(null);
 		for(var j = 0;j < this.state.row_count;j++){
