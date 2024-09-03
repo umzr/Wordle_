@@ -9,6 +9,16 @@
 
 This project is a multiplayer version of the popular word-guessing game Wordle, built using React and WebSocket for real-time multiplayer functionality.
 
+- Single player mode
+
+  - Start
+    ![Single player mode](./image/single.MP4)
+  - End
+    ![Single player mode](./image/single_end.MP4)
+
+- Multiplayer mode
+  ![Multiplayer mode](./image/multi.MP4)
+
 ## Table of Contents
 
 - [Wordle](#wordle)
