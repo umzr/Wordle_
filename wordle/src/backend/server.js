@@ -5,7 +5,7 @@ const cors = require("cors");
 const corsOptions = require("./config/corsOptions");
 const PORT = process.env.PORT || 3500;
 const socketPORT = process.env.PORT + 1 || 3501;
-const answers = require("./word.ts");
+const answers = require("./word");
 // Cross Origin Resource Sharing
 app.use(cors(corsOptions));
 
