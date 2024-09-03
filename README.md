@@ -12,12 +12,12 @@ This project is a multiplayer version of the popular word-guessing game Wordle, 
 - Single player mode
 
   - Start
-    ![Single player mode](./image/single.MP4)
+    ![Single player mode](./image/single.gif)
   - End
-    ![Single player mode](./image/single_end.MP4)
+    ![Single player mode](./image/single_end.gif)
 
 - Multiplayer mode
-  ![Multiplayer mode](./image/multi.MP4)
+  ![Multiplayer mode](./image/multi.gif)
 
 ## Table of Contents
 
